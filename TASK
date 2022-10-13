@@ -1,0 +1,148 @@
+*&---------------------------------------------------------------------*
+*& Report Z5236_SAMPLE
+*&---------------------------------------------------------------------*
+* Description:      INTERACTIVE ALV REPORT
+*                                                                      *
+* Author:          ANJALI DEVI PALLAPU  -46255236
+*                                                                      *
+* Create date:        12/10/2022
+*                                                                      *
+*&---------------------------------------------------------------------*
+* Modification log:                                                    *
+* -------------------------------------------------------------------- *
+* Date        User name      ID       Change Request   Case ref.       *
+*             Description                                              *
+*&---------------------------------------------------------------------*
+REPORT Z5236_SAMPLE.
+
+
+
+Tables:MARA,MAKT.
+
+DATA:IT_MAKT TYPE STANDARD TABLE OF MAKT.
+
+
+DATA: it_fcat TYPE slis_t_fieldcat_alv,
+      wa_fcat type slis_fieldcat_alv.
+
+DATA: RC1 type  ref to cl_gui_custom_container,   """" DEFININF CONTAINER CLASS OBJECTS
+      RG1 type ref to  cl_gui_alv_grid.
+
+*SELECTION SCREEN FOR INPUT PARAMETERS
+SELECTION-SCREEN BEGIN OF BLOCK B1 WITH FRAME TITLE TEXT.
+
+SELECT-OPTIONS:S_MATNR FOR MARA-MATNR.
+PARAMETERS:    S_MTART TYPE MARA-MTART.
+*PARAMETERS:S_ERNAM TYPE MARA-ERNAM.
+
+SELECTION-SCREEN END  OF BLOCK B1.
+
+
+START-OF-SELECTION.
+
+SELECT MATNR,                                                             """ QUERY FOR DATA FETCHING
+       ERNAM,
+       VPSTA,
+       PSTAT,
+       MTART,
+       MBRSH,
+       MATKL,
+       MEINS,
+       GEWEI,
+       SLED_BBD
+       FROM MARA UP TO 10 ROWS INTO TABLE @DATA(IT_MARA)
+   WHERE MATNR IN @S_MATNR.
+
+LOOP AT it_fcat INTO wa_fcat .
+
+IF wa_fcat-fieldname   = 'MATNR'.
+   wa_fcat-hotspot     = 'X'.
+MODIFY it_fcat FROM wa_fcat.
+
+ENDIF.
+ENDLOOP.
+
+**GRID DISPLAY FUNCTION CALL
+CALL FUNCTION 'REUSE_ALV_GRID_DISPLAY'
+ EXPORTING
+     I_CALLBACK_PROGRAM                = SY-REPID
+   I_STRUCTURE_NAME                  = 'Z5236STU_MARA'
+   i_callback_user_command           = 'USERCMND'
+   it_fieldcat                       = it_fcat
+  TABLES
+    t_outtab                          = IT_MARA
+ EXCEPTIONS
+   PROGRAM_ERROR                     = 1
+   OTHERS                            = 2
+          .
+IF sy-subrc <> 0.
+* Implement suitable error handling here
+  WRITE:/ 'ERROR OCCURED'.
+ENDIF.
+
+
+FORM usercmnd USING r_ucomm LIKE sy-ucomm
+rs_selfield TYPE slis_selfield .
+
+PERFORM GET_DATA.
+
+CALL SCREEN 100.
+ endform.
+
+ START-OF-SELECTION.
+*&---------------------------------------------------------------------*
+*& Form GET_DATA
+*&---------------------------------------------------------------------*
+
+FORM get_data .
+   SELECT * FROM MAKT INTO TABLE IT_MAKT UP TO 10 ROWS WHERE MATNR IN S_MATNR.
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Module STATUS_0100 OUTPUT
+
+MODULE status_0100 OUTPUT.
+ SET PF-STATUS 'BACK'.
+* SET TITLEBAR 'xxx'.
+ENDMODULE.
+*&---------------------------------------------------------------------*
+*&      Module  USER_COMMAND_0100  INPUT
+
+MODULE user_command_0100 INPUT.
+  CASE SY-UCOMM.
+    WHEN 'BACK'.
+    LEAVE TO SCREEN 0.
+    ENDCASE.
+ENDMODULE.
+
+
+MODULE DATA_DISPLAY OUTPUT.
+
+  CREATE OBJECT rc1                                     """container class object
+    EXPORTING
+      container_name              = 'ALV'
+
+    EXCEPTIONS
+      cntl_error                  = 1
+      cntl_system_error           = 2
+      create_error                = 3
+      lifetime_error              = 4
+      lifetime_dynpro_dynpro_link = 5
+      others                      = 6
+      .
+  IF sy-subrc <> 0.
+   MESSAGE ID SY-MSGID TYPE SY-MSGTY NUMBER SY-MSGNO
+              WITH SY-MSGV1 SY-MSGV2 SY-MSGV3 SY-MSGV4.
+  ENDIF.
+
+CREATE OBJECT rg1
+  EXPORTING
+    i_parent          = rc1.
+
+
+CALL METHOD rg1->set_table_for_first_display      """display alv
+EXPORTING
+i_structure_name              = 'Z5236STU_MAKT'
+CHANGING
+it_outtab                     = IT_MAKT.
+
+ENDMODULE.
